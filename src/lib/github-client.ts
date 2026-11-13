@@ -6,6 +6,18 @@ import { toast } from 'sonner'
 
 export const GH_API = 'https://api.github.com'
 
+/**
+ * GitHub 的 REST 接口不接受被编码的斜杠（%2F），
+ * 例如 /git/ref/heads%2Fmain 会直接返回 404。
+ * 所以必须逐段编码、保留路径里的 /，同时仍能正确处理中文和空格。
+ */
+export function encodePath(value: string): string {
+	return value
+		.split('/')
+		.map(segment => encodeURIComponent(segment))
+		.join('/')
+}
+
 function handle401Error(): void {
 	if (typeof sessionStorage === 'undefined') return
 	try {
@@ -63,7 +75,7 @@ export async function createInstallationToken(jwt: string, installationId: numbe
 }
 
 export async function getFileSha(token: string, owner: string, repo: string, path: string, branch: string): Promise<string | undefined> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodePath(branch)}`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: 'application/vnd.github+json',
@@ -80,7 +92,7 @@ export async function getFileSha(token: string, owner: string, repo: string, pat
 
 export async function putFile(token: string, owner: string, repo: string, path: string, contentBase64: string, message: string, branch: string) {
 	const sha = await getFileSha(token, owner, repo, path, branch)
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
 		method: 'PUT',
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -99,7 +111,7 @@ export async function putFile(token: string, owner: string, repo: string, path: 
 // Batch commit APIs
 
 export async function getRef(token: string, owner: string, repo: string, ref: string): Promise<{ sha: string }> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/ref/${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/ref/${encodePath(ref)}`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: 'application/vnd.github+json',
@@ -158,7 +170,7 @@ export async function createCommit(token: string, owner: string, repo: string, m
 }
 
 export async function updateRef(token: string, owner: string, repo: string, ref: string, sha: string, force = false): Promise<void> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/refs/${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/refs/${encodePath(ref)}`, {
 		method: 'PATCH',
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -174,7 +186,7 @@ export async function updateRef(token: string, owner: string, repo: string, ref:
 }
 
 export async function readTextFileFromRepo(token: string, owner: string, repo: string, path: string, ref: string): Promise<string | null> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodePath(ref)}`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: 'application/vnd.github+json',
@@ -196,7 +208,7 @@ export async function readTextFileFromRepo(token: string, owner: string, repo: s
 
 export async function listRepoFilesRecursive(token: string, owner: string, repo: string, path: string, ref: string): Promise<string[]> {
 	async function fetchPath(targetPath: string): Promise<string[]> {
-		const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(targetPath)}?ref=${encodeURIComponent(ref)}`, {
+		const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodePath(targetPath)}?ref=${encodePath(ref)}`, {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				Accept: 'application/vnd.github+json',
